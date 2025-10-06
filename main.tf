@@ -42,34 +42,62 @@ resource "huaweicloud_networking_secgroup_rule" "sp_ingress" {
   remote_ip_prefix  = "10.0.0.0/8"
 }
 
+resource "huaweicloud_vpc" "sp_dmz" {
+  name = "vpc-dmz"
+  cidr = "10.255.40.0/24"
+}
 
-########################################################################
+resource "huaweicloud_vpc_subnet" "sp_dmz" {
+  name       = "subnet-dmz"
+  cidr       = huaweicloud_vpc.sp_dmz.cidr
+  gateway_ip = "10.255.40.1"
+  vpc_id     = huaweicloud_vpc.sp_dmz.id
+}
+
+# ----------------------------------------------------------------------------
 # NAT Gateway for outbound internet access
 
-# resource "huaweicloud_nat_gateway" "main" {
-#   name      = "nat-seniorx"
-#   spec      = "1"
-#   vpc_id    = huaweicloud_vpc.main.id
-#   subnet_id = huaweicloud_vpc_subnet.vpn.id
-# }
+resource "huaweicloud_nat_gateway" "main" {
+  name      = "nat-demo"
+  spec      = "1"
+  vpc_id    = huaweicloud_vpc.sp_dmz.id
+  subnet_id = huaweicloud_vpc_subnet.sp_dmz.id
+}
 
-# resource "huaweicloud_vpc_eip" "nat" {
-#   name = "eip-nat-seniorx"
-#   publicip {
-#     type = "5_bgp"
-#   }
+resource "huaweicloud_vpc_eip" "nat" {
+  name = "eip-nat-demo"
+  publicip {
+    type = "5_bgp"
+  }
 
-#   bandwidth {
-#     share_type  = "PER"
-#     name        = "bandwidth-nat-seniorx"
-#     size        = 300
-#     charge_mode = "traffic"
-#   }
-# }
+  bandwidth {
+    share_type  = "PER"
+    name        = "bandwidth-nat-demo"
+    size        = 300
+    charge_mode = "traffic"
+  }
+}
 
-# resource "huaweicloud_nat_snat_rule" "main" {
-#   nat_gateway_id = huaweicloud_nat_gateway.main.id
-#   floating_ip_id = huaweicloud_vpc_eip.nat.id
-#   source_type    = 1
-#   cidr           = huaweicloud_vpc.main.cidr
-# }
+resource "huaweicloud_nat_snat_rule" "main" {
+  nat_gateway_id = huaweicloud_nat_gateway.main.id
+  floating_ip_id = huaweicloud_vpc_eip.nat.id
+  source_type    = 1
+  cidr           = "10.255.0.0/16"
+  description    = "Outbound internet access for all VPCs in LA-Sao Paulo1 region"
+}
+
+resource "huaweicloud_vpc_route" "sp_app_nat" {
+  vpc_id      = huaweicloud_vpc.sp_app.id
+  destination = "0.0.0.0/0"
+  type        = "er"
+  nexthop     = huaweicloud_er_instance.main.id
+  description = "Outbound internet access through NAT Gateway in vpc-dmz"
+}
+
+resource "huaweicloud_vpc_route" "sp_net_nat" {
+  vpc_id      = huaweicloud_vpc.sp_net.id
+  destination = "0.0.0.0/0"
+  type        = "er"
+  nexthop     = huaweicloud_er_instance.main.id
+  description = "Outbound internet access through NAT Gateway in vpc-dmz"
+}

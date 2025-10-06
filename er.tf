@@ -31,6 +31,15 @@ resource "huaweicloud_er_vpc_attachment" "sp_app" {
   auto_create_vpc_routes = true
 }
 
+resource "huaweicloud_er_vpc_attachment" "sp_dmz" {
+  instance_id = local.er_id
+  vpc_id      = huaweicloud_vpc.sp_dmz.id
+  subnet_id   = huaweicloud_vpc_subnet.sp_dmz.id
+
+  name                   = "sp_dmz"
+  auto_create_vpc_routes = true
+}
+
 data "huaweicloud_er_attachments" "vpn" {
   instance_id = local.er_id
   type        = "vpn"
@@ -44,6 +53,7 @@ data "huaweicloud_er_attachments" "cfw" {
 locals {
   er_attach_app = huaweicloud_er_vpc_attachment.sp_app.id
   er_attach_net = huaweicloud_er_vpc_attachment.sp_net.id
+  er_attach_dmz = huaweicloud_er_vpc_attachment.sp_dmz.id
   er_attach_cfw = data.huaweicloud_er_attachments.cfw.attachments[0].id
   er_attach_vpn = data.huaweicloud_er_attachments.vpn.attachments[0].id
 }
@@ -64,6 +74,12 @@ resource "huaweicloud_er_association" "vpcs_sp_app" {
   instance_id    = local.er_id
   route_table_id = local.er_rtb_vpcs
   attachment_id  = local.er_attach_app
+}
+
+resource "huaweicloud_er_association" "vpcs_sp_dmz" {
+  instance_id    = local.er_id
+  route_table_id = local.er_rtb_vpcs
+  attachment_id  = local.er_attach_dmz
 }
 
 resource "huaweicloud_er_association" "vpcs_sp_net" {
@@ -138,8 +154,20 @@ resource "huaweicloud_er_propagation" "cfw_net" {
   attachment_id  = local.er_attach_net
 }
 
+resource "huaweicloud_er_propagation" "cfw_dmz" {
+  instance_id    = local.er_id
+  route_table_id = local.er_rtb_cfw
+  attachment_id  = local.er_attach_dmz
+}
+
 resource "huaweicloud_er_propagation" "cfw_vpn" {
   instance_id    = local.er_id
   route_table_id = local.er_rtb_cfw
   attachment_id  = local.er_attach_vpn
+}
+
+resource "huaweicloud_er_static_route" "cfw_internet" {
+  route_table_id = local.er_rtb_cfw
+  destination    = "0.0.0.0/0"
+  attachment_id  = local.er_attach_dmz
 }
