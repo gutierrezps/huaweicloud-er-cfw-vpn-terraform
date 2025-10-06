@@ -1,14 +1,14 @@
 
 data "huaweicloud_vpn_gateway_availability_zones" "zone_stg" {
-  region     = "la-south-2"
-  flavor        = "professional1"
+  region          = "la-south-2"
+  flavor          = "professional1"
   attachment_type = "vpc"
 }
 
 resource "huaweicloud_vpc" "stg" {
-  region     = "la-south-2"
-  name     = "vpc-santiago"
-  cidr     = "10.128.10.0/24"
+  region = "la-south-2"
+  name   = "vpc-santiago"
+  cidr   = "10.128.10.0/24"
 }
 
 resource "huaweicloud_vpc_subnet" "vpn_stg" {
@@ -20,12 +20,12 @@ resource "huaweicloud_vpc_subnet" "vpn_stg" {
 }
 
 resource "huaweicloud_vpn_gateway" "vpn_stg" {
-  region     = "la-south-2"
-  name             = "vpn-stg-gateway"
-  vpc_id           = huaweicloud_vpc.stg.id
-  local_subnets    = [huaweicloud_vpc_subnet.vpn_stg.cidr]
-  connect_subnet   = huaweicloud_vpc_subnet.vpn_stg.id
-  attachment_type  = "vpc"
+  region          = "la-south-2"
+  name            = "vpn-stg-gateway"
+  vpc_id          = huaweicloud_vpc.stg.id
+  local_subnets   = [huaweicloud_vpc_subnet.vpn_stg.cidr]
+  connect_subnet  = huaweicloud_vpc_subnet.vpn_stg.id
+  attachment_type = "vpc"
 
   availability_zones = [
     data.huaweicloud_vpn_gateway_availability_zones.zone_stg.names[0],
@@ -48,13 +48,13 @@ resource "huaweicloud_vpn_gateway" "vpn_stg" {
 }
 
 resource "huaweicloud_vpn_customer_gateway" "cgw_sp" {
-  region     = "la-south-2"
+  region   = "la-south-2"
   name     = "cgw_sp_stg"
   id_value = huaweicloud_vpn_gateway.vpn.eip1[0].ip_address
 }
 
 resource "huaweicloud_vpn_connection" "vpn_conn_stg" {
-  region     = "la-south-2"
+  region              = "la-south-2"
   name                = "vpn-stg-to-sp"
   gateway_id          = huaweicloud_vpn_gateway.vpn_stg.id
   gateway_ip          = huaweicloud_vpn_gateway.vpn_stg.eip1[0].id
@@ -91,13 +91,13 @@ resource "huaweicloud_vpn_connection" "vpn_conn_stg" {
 
 
 resource "huaweicloud_networking_secgroup" "stg_main" {
-  region = "la-south-2"
+  region               = "la-south-2"
   name                 = "sg-main"
   delete_default_rules = true
 }
 
 resource "huaweicloud_networking_secgroup_rule" "stg_egress" {
-  region = "la-south-2"
+  region            = "la-south-2"
   security_group_id = huaweicloud_networking_secgroup.stg_main.id
   description       = "Allow all outbound traffic"
   direction         = "egress"
@@ -105,7 +105,7 @@ resource "huaweicloud_networking_secgroup_rule" "stg_egress" {
 }
 
 resource "huaweicloud_networking_secgroup_rule" "stg_ingress" {
-  region = "la-south-2"
+  region            = "la-south-2"
   security_group_id = huaweicloud_networking_secgroup.stg_main.id
   description       = "Allow VPC access"
   direction         = "ingress"
@@ -115,26 +115,26 @@ resource "huaweicloud_networking_secgroup_rule" "stg_ingress" {
 
 
 data "huaweicloud_images_image" "stg" {
-  region = "la-south-2"
+  region      = "la-south-2"
   name        = "Ubuntu 24.04 server 64bit"
   most_recent = true
 }
 
 resource "huaweicloud_compute_instance" "stg" {
-  name                = "ecs-stg"
-  image_id            = data.huaweicloud_images_image.stg.id
-  flavor_id           = "t6.small.1"
-  security_group_ids  = [
+  name      = "ecs-stg"
+  image_id  = data.huaweicloud_images_image.stg.id
+  flavor_id = "t6.small.1"
+  security_group_ids = [
     huaweicloud_networking_secgroup.stg_main.id
   ]
-  region              = "la-south-2"
-  availability_zone   = "la-south-2a"
-  admin_pass          = var.default_password
-  system_disk_type    = "SAS"
-  system_disk_size    = 10
+  region            = "la-south-2"
+  availability_zone = "la-south-2a"
+  admin_pass        = var.default_password
+  system_disk_type  = "SAS"
+  system_disk_size  = 10
 
   network {
-    uuid              = huaweicloud_vpc_subnet.vpn_stg.id
-    fixed_ip_v4       = "10.128.10.10"
+    uuid        = huaweicloud_vpc_subnet.vpn_stg.id
+    fixed_ip_v4 = "10.128.10.10"
   }
 }
