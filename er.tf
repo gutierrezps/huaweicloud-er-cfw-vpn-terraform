@@ -5,8 +5,16 @@ resource "huaweicloud_er_instance" "main" {
   asn  = 65000
 }
 
+locals {
+  er_id = huaweicloud_er_instance.main.id
+}
+
+# ----------------------------------------------------------------------------
+# VPC Attachments
+# (VPN and CFW attachments are created automatically)
+
 resource "huaweicloud_er_vpc_attachment" "sp_net" {
-  instance_id = huaweicloud_er_instance.main.id
+  instance_id = local.er_id
   vpc_id      = huaweicloud_vpc.sp_net.id
   subnet_id   = huaweicloud_vpc_subnet.sp_net.id
 
@@ -15,7 +23,7 @@ resource "huaweicloud_er_vpc_attachment" "sp_net" {
 }
 
 resource "huaweicloud_er_vpc_attachment" "sp_app" {
-  instance_id = huaweicloud_er_instance.main.id
+  instance_id = local.er_id
   vpc_id      = huaweicloud_vpc.sp_app.id
   subnet_id   = huaweicloud_vpc_subnet.sp_app.id
 
@@ -23,51 +31,115 @@ resource "huaweicloud_er_vpc_attachment" "sp_app" {
   auto_create_vpc_routes = true
 }
 
-resource "huaweicloud_er_route_table" "default" {
-  instance_id = huaweicloud_er_instance.main.id
-  name        = "rtb-default"
-}
-
-resource "huaweicloud_er_association" "default_sp_app" {
-  instance_id    = huaweicloud_er_instance.main.id
-  route_table_id = huaweicloud_er_route_table.default.id
-  attachment_id  = huaweicloud_er_vpc_attachment.sp_app.id
-}
-
-resource "huaweicloud_er_association" "default_sp_net" {
-  instance_id    = huaweicloud_er_instance.main.id
-  route_table_id = huaweicloud_er_route_table.default.id
-  attachment_id  = huaweicloud_er_vpc_attachment.sp_net.id
-}
-
-
 data "huaweicloud_er_attachments" "vpn" {
-  instance_id    = huaweicloud_er_instance.main.id
-
-  type = "vpn"
+  instance_id = local.er_id
+  type        = "vpn"
 }
 
-resource "huaweicloud_er_association" "default_vpn" {
-  instance_id    = huaweicloud_er_instance.main.id
-  route_table_id = huaweicloud_er_route_table.default.id
-  attachment_id  = data.huaweicloud_er_attachments.vpn.attachments[0].id
+data "huaweicloud_er_attachments" "cfw" {
+  instance_id = local.er_id
+  type        = "cfw"
 }
 
+locals {
+  er_attach_app = huaweicloud_er_vpc_attachment.sp_app.id
+  er_attach_net = huaweicloud_er_vpc_attachment.sp_net.id
+  er_attach_cfw = data.huaweicloud_er_attachments.cfw.attachments[0].id
+  er_attach_vpn = data.huaweicloud_er_attachments.vpn.attachments[0].id
+}
+
+# ----------------------------------------------------------------------------
+# Route Table for VPCs
+
+resource "huaweicloud_er_route_table" "vpcs" {
+  instance_id = local.er_id
+  name        = "rtb-vpcs"
+}
+
+locals {
+  er_rtb_vpcs = huaweicloud_er_route_table.vpcs.id
+}
+
+resource "huaweicloud_er_association" "vpcs_sp_app" {
+  instance_id    = local.er_id
+  route_table_id = local.er_rtb_vpcs
+  attachment_id  = local.er_attach_app
+}
+
+resource "huaweicloud_er_association" "vpcs_sp_net" {
+  instance_id    = local.er_id
+  route_table_id = local.er_rtb_vpcs
+  attachment_id  = local.er_attach_net
+}
+
+resource "huaweicloud_er_static_route" "vpcs_cfw" {
+  route_table_id = local.er_rtb_vpcs
+  destination    = "0.0.0.0/0"
+  attachment_id  = local.er_attach_cfw
+}
+
+# ----------------------------------------------------------------------------
+# Route Table for VPN
+
+resource "huaweicloud_er_route_table" "vpn" {
+  instance_id = local.er_id
+  name        = "rtb-vpn"
+}
+
+locals {
+  er_rtb_vpn = huaweicloud_er_route_table.vpn.id
+}
+
+resource "huaweicloud_er_association" "vpn_vpn" {
+  instance_id    = local.er_id
+  route_table_id = local.er_rtb_vpn
+  attachment_id  = local.er_attach_vpn
+}
 
 resource "huaweicloud_er_static_route" "app" {
-  route_table_id = huaweicloud_er_route_table.default.id
+  route_table_id = local.er_rtb_vpn
   destination    = huaweicloud_vpc.sp_app.cidr
-  attachment_id  = huaweicloud_er_vpc_attachment.sp_app.id
+  attachment_id  = local.er_attach_cfw
 }
 
 resource "huaweicloud_er_static_route" "net" {
-  route_table_id = huaweicloud_er_route_table.default.id
+  route_table_id = local.er_rtb_vpn
   destination    = huaweicloud_vpc.sp_net.cidr
-  attachment_id  = huaweicloud_er_vpc_attachment.sp_net.id
+  attachment_id  = local.er_attach_cfw
 }
 
-resource "huaweicloud_er_propagation" "default_vpn" {
-  instance_id    = huaweicloud_er_instance.main.id
-  route_table_id = huaweicloud_er_route_table.default.id
-  attachment_id  = data.huaweicloud_er_attachments.vpn.attachments[0].id
+# ----------------------------------------------------------------------------
+# Route Table for CFW
+
+resource "huaweicloud_er_route_table" "cfw" {
+  instance_id = local.er_id
+  name        = "rtb-cfw"
+}
+
+locals {
+  er_rtb_cfw = huaweicloud_er_route_table.cfw.id
+}
+
+resource "huaweicloud_er_association" "cfw_cfw" {
+  instance_id    = local.er_id
+  route_table_id = local.er_rtb_cfw
+  attachment_id  = local.er_attach_cfw
+}
+
+resource "huaweicloud_er_propagation" "cfw_app" {
+  instance_id    = local.er_id
+  route_table_id = local.er_rtb_cfw
+  attachment_id  = local.er_attach_app
+}
+
+resource "huaweicloud_er_propagation" "cfw_net" {
+  instance_id    = local.er_id
+  route_table_id = local.er_rtb_cfw
+  attachment_id  = local.er_attach_net
+}
+
+resource "huaweicloud_er_propagation" "cfw_vpn" {
+  instance_id    = local.er_id
+  route_table_id = local.er_rtb_cfw
+  attachment_id  = local.er_attach_vpn
 }
