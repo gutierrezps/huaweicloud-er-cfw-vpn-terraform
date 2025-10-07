@@ -12,6 +12,27 @@ Based on the [Huawei Cloud Terraform Boilerplate][boilerplate].
 
 ![Enterprise Router route tables](doc/er-route-tables.png)
 
+## Terraform operation
+
+How to apply:
+
+```sh
+# Create Enterprise Router
+terraform apply -target data.huaweicloud_er_attachments.vpn -target data.huaweicloud_er_attachments.cfw
+
+# Create other resources
+terraform apply
+```
+
+How to destroy:
+
+```sh
+terraform destroy
+```
+
+Then remove manually the CFW attachment from the ER, and run `terraform destroy`
+again.
+
 ## References
 
 - [Cloud Firewall (CFW) SNAT Protection Overview][cfw-snat]

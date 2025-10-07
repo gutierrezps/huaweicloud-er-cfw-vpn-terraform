@@ -4,7 +4,7 @@ data "huaweicloud_vpn_gateway_availability_zones" "zone" {
 }
 
 resource "huaweicloud_vpn_gateway" "vpn" {
-  name = "vpn-gateway-sp"
+  name             = "vpn-gateway-sp"
   access_subnet_id = huaweicloud_vpc_subnet.sp_net.id
   access_vpc_id    = huaweicloud_vpc.sp_net.id
   attachment_type  = "er"

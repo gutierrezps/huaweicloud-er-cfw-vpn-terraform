@@ -54,8 +54,8 @@ locals {
   er_attach_app = huaweicloud_er_vpc_attachment.sp_app.id
   er_attach_net = huaweicloud_er_vpc_attachment.sp_net.id
   er_attach_dmz = huaweicloud_er_vpc_attachment.sp_dmz.id
-  er_attach_cfw = data.huaweicloud_er_attachments.cfw.attachments[0].id
-  er_attach_vpn = data.huaweicloud_er_attachments.vpn.attachments[0].id
+  er_attach_cfw = length(data.huaweicloud_er_attachments.cfw.attachments) > 0 ? one(data.huaweicloud_er_attachments.cfw.attachments).id : null
+  er_attach_vpn = length(data.huaweicloud_er_attachments.vpn.attachments) > 0 ? one(data.huaweicloud_er_attachments.vpn.attachments).id : null
 }
 
 # ----------------------------------------------------------------------------
@@ -89,6 +89,7 @@ resource "huaweicloud_er_association" "vpcs_sp_net" {
 }
 
 resource "huaweicloud_er_static_route" "vpcs_cfw" {
+  count          = local.er_attach_cfw != null ? 1 : 0
   route_table_id = local.er_rtb_vpcs
   destination    = "0.0.0.0/0"
   attachment_id  = local.er_attach_cfw
@@ -107,18 +108,21 @@ locals {
 }
 
 resource "huaweicloud_er_association" "vpn_vpn" {
+  count          = local.er_attach_vpn != null ? 1 : 0
   instance_id    = local.er_id
   route_table_id = local.er_rtb_vpn
   attachment_id  = local.er_attach_vpn
 }
 
 resource "huaweicloud_er_static_route" "app" {
+  count          = local.er_attach_cfw != null ? 1 : 0
   route_table_id = local.er_rtb_vpn
   destination    = huaweicloud_vpc.sp_app.cidr
   attachment_id  = local.er_attach_cfw
 }
 
 resource "huaweicloud_er_static_route" "net" {
+  count          = local.er_attach_cfw != null ? 1 : 0
   route_table_id = local.er_rtb_vpn
   destination    = huaweicloud_vpc.sp_net.cidr
   attachment_id  = local.er_attach_cfw
@@ -137,6 +141,7 @@ locals {
 }
 
 resource "huaweicloud_er_association" "cfw_cfw" {
+  count          = local.er_attach_cfw != null ? 1 : 0
   instance_id    = local.er_id
   route_table_id = local.er_rtb_cfw
   attachment_id  = local.er_attach_cfw
@@ -161,6 +166,7 @@ resource "huaweicloud_er_propagation" "cfw_dmz" {
 }
 
 resource "huaweicloud_er_propagation" "cfw_vpn" {
+  count          = local.er_attach_vpn != null ? 1 : 0
   instance_id    = local.er_id
   route_table_id = local.er_rtb_cfw
   attachment_id  = local.er_attach_vpn
